@@ -120,9 +120,13 @@ fn check_doctor() {
         ("jj", "jj", vec!["--version"]),
         ("gix", "gix", vec!["--version"]),
         ("just", "just", vec!["--version"]),
+        ("go", "go", vec!["version"]),
+        ("zig", "zig", vec!["version"]),
         ("dotnet", "dotnet", vec!["--version"]),
         ("nvcc", "nvcc", vec!["--version"]),
         ("cl.exe", "cl", vec!["/help"]),
+        ("claude", "claude", vec!["--version"]),
+        ("agy", "agy", vec!["--version"]),
         ("wck", "wck", vec!["--version"]),
     ];
 
@@ -148,10 +152,21 @@ fn check_doctor() {
 
     println!("{}", "-".repeat(70));
     if all_ok {
-        println!("All 12 core toolchains verified and operational.\n");
+        println!("All 16 sovereign toolchains & AI CLIs verified and operational.\n");
     } else {
         println!("Some toolchains are missing or not in PATH.\n");
     }
+}
+
+fn is_reparse_point(path: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if let Ok(meta) = fs::symlink_metadata(path) {
+            return (meta.file_attributes() & 0x0400) != 0;
+        }
+    }
+    false
 }
 
 fn get_dir_size(path: &Path) -> u64 {
@@ -159,6 +174,9 @@ fn get_dir_size(path: &Path) -> u64 {
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
             let p = entry.path();
+            if is_reparse_point(&p) {
+                continue;
+            }
             if p.is_dir() {
                 total += get_dir_size(&p);
             } else if let Ok(meta) = entry.metadata() {
@@ -169,38 +187,47 @@ fn get_dir_size(path: &Path) -> u64 {
     total
 }
 
-fn discover_repos(root: &Path) -> Vec<PathBuf> {
-    let mut repos = Vec::new();
-    let nested_dirs = ["vcs", "vercel", "cloudflare", "microsoft"];
-
-    if let Ok(entries) = fs::read_dir(root) {
+fn scan_repo_tree(dir: &Path, depth: usize, max_depth: usize, repos: &mut Vec<PathBuf>) {
+    if depth > max_depth {
+        return;
+    }
+    if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let p = entry.path();
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name.starts_with('.') || name == "node_modules" || name == "target" {
+                continue;
+            }
+            // Allow packages/ai-os junction while its real backing dir at root is hidden, skip root compat junctions
+            if is_reparse_point(&p) && !(depth == 1 && name == "ai-os") {
+                continue;
+            }
             if !p.is_dir() {
                 continue;
             }
-            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if name.starts_with('.') || name == "node_modules" {
-                continue;
-            }
-
             if p.join(".git").exists() || p.join(".jj").exists() {
                 repos.push(p);
-            } else if nested_dirs.contains(&name) {
-                if let Ok(sub_entries) = fs::read_dir(&p) {
-                    for sub in sub_entries.flatten() {
-                        let sub_p = sub.path();
-                        if sub_p.is_dir()
-                            && (sub_p.join(".git").exists() || sub_p.join(".jj").exists())
-                        {
-                            repos.push(sub_p);
-                        }
-                    }
-                }
+            } else {
+                scan_repo_tree(&p, depth + 1, max_depth, repos);
             }
         }
     }
+}
+
+fn discover_repos(root: &Path) -> Vec<PathBuf> {
+    let mut repos = Vec::new();
+    let canonical_groups = ["apps", "packages", "crates", "infra", "third_party"];
+    for group in canonical_groups {
+        let gp = root.join(group);
+        if gp.is_dir() {
+            scan_repo_tree(&gp, 1, 3, &mut repos);
+        }
+    }
+    if root.join("infra").join(".git").exists() {
+        repos.push(root.join("infra"));
+    }
     repos.sort();
+    repos.dedup();
     repos
 }
 
@@ -342,8 +369,12 @@ fn run_lock(root_str: &str, out_path_str: &str) {
         ("jj", "jj", vec!["--version"]),
         ("gix", "gix", vec!["--version"]),
         ("just", "just", vec!["--version"]),
+        ("go", "go", vec!["version"]),
+        ("zig", "zig", vec!["version"]),
         ("dotnet", "dotnet", vec!["--version"]),
         ("nvcc", "nvcc", vec!["--version"]),
+        ("claude", "claude", vec!["--version"]),
+        ("agy", "agy", vec!["--version"]),
     ];
 
     for (k, prog, a) in checks {
