@@ -1,0 +1,22 @@
+[package]
+name = "xtk"
+version = "0.1.0"
+edition = "2024"
+authors = ["aphrody-dev <contact@aphrody.com>"]
+description = "Sovereign 3-letter Monorepo Maintenance and Doctor CLI (xtk)"
+
+[[bin]]
+name = "xtk"
+path = "src/main.rs"
+
+[dependencies]
+argh = "0.1.13"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
