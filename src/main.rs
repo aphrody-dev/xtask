@@ -779,11 +779,10 @@ pub fn render_kernel_maintainers() -> String {
             ],
             &[
                 "MAINTAINERS",
-                "crates/awesome-posix-discovery/",
                 "crates/unix/",
                 "docs/linux-kernel-story/",
                 "docs/patches/",
-                "packages/kernel-crawler/",
+                "packages/knowledge-engine/",
                 "third_party/archlinux/",
                 "third_party/cachyos/",
                 "third_party/linux/",
