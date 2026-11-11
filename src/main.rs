@@ -198,8 +198,7 @@ fn scan_repo_tree(dir: &Path, depth: usize, max_depth: usize, repos: &mut Vec<Pa
             if name.starts_with('.') || name == "node_modules" || name == "target" {
                 continue;
             }
-            // Allow packages/ai-os junction while its real backing dir at root is hidden, skip root compat junctions
-            if is_reparse_point(&p) && !(depth == 1 && name == "ai-os") {
+            if is_reparse_point(&p) {
                 continue;
             }
             if !p.is_dir() {
